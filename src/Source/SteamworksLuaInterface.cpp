@@ -3611,6 +3611,492 @@ int OnGetUserStorage(lua_State* L) {
 
     return 1;
 }
+//---------------------------------------------------------------------------------
+// Steam Input Functions
+//---------------------------------------------------------------------------------
+
+/**
+  Returns the input type name string for a given ESteamInputType enum value.
+ */
+static const char* GetInputTypeString(ESteamInputType inputType)
+{
+	switch (inputType)
+	{
+		case k_ESteamInputType_SteamController:    return "SteamController";
+		case k_ESteamInputType_XBox360Controller:  return "XBox360";
+		case k_ESteamInputType_XBoxOneController:  return "XBoxOne";
+		case k_ESteamInputType_GenericGamepad:      return "GenericGamepad";
+		case k_ESteamInputType_PS4Controller:      return "PS4";
+		case k_ESteamInputType_SwitchProController: return "SwitchPro";
+		case k_ESteamInputType_PS3Controller:      return "PS3";
+		case k_ESteamInputType_PS5Controller:      return "PS5";
+		case k_ESteamInputType_SteamDeckController: return "SteamDeck";
+		default:                                    return "Unknown";
+	}
+}
+
+/**
+  Pushes a 64-bit InputHandle_t to Lua as a string.
+  Controller handles routinely exceed 2^53, the largest integer a Lua double can
+  represent exactly, so they must be bridged as strings to preserve all digits.
+  Mirrors the SteamID-as-string pattern used elsewhere in this plugin.
+ */
+static void PushInputHandle(lua_State* L, uint64 handle)
+{
+	std::stringstream stringStream;
+	stringStream.imbue(std::locale::classic());
+	stringStream << handle;
+	auto str = stringStream.str();
+	lua_pushstring(L, str.c_str());
+}
+
+/**
+  Reads a 64-bit InputHandle_t from Lua. Accepts a string (preferred) or, as a
+  fallback, a number for small handles that fit in a Lua double exactly.
+ */
+static uint64 CheckInputHandle(lua_State* L, int index)
+{
+	if (lua_type(L, index) == LUA_TSTRING)
+	{
+		const char* str = lua_tostring(L, index);
+		uint64 value = 0;
+		std::stringstream stringStream;
+		stringStream.imbue(std::locale::classic());
+		stringStream << str;
+		stringStream >> value;
+		return value;
+	}
+	return (uint64)luaL_checknumber(L, index);
+}
+
+/**
+  Initializes Steam Input. Must be called before any other Steam Input functions.
+  Lua usage: steamworks.initSteamInput()
+  Returns true if successful, false otherwise.
+ */
+int OnInitSteamInput(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	// Pass false so SteamAPI_RunCallbacks() automatically calls RunFrame()
+	bool result = steamInput->Init(false);
+	lua_pushboolean(L, result ? 1 : 0);
+	return 1;
+}
+
+/**
+  Shuts down Steam Input.
+  Lua usage: steamworks.shutdownSteamInput()
+ */
+int OnShutdownSteamInput(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (steamInput)
+	{
+		steamInput->Shutdown();
+	}
+	return 0;
+}
+
+/**
+  Manually pumps Steam Input state for the current frame. Should be called once
+  per frame before reading any digital or analog action data. Although Init(false)
+  is documented as enabling auto-RunFrame via SteamAPI_RunCallbacks(), in practice
+  binding state and action origins do not refresh without an explicit RunFrame
+  call. Calling this every frame is the canonical fix.
+  Lua usage: steamworks.runFrame()
+ */
+int OnRunFrame(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (steamInput)
+	{
+		steamInput->RunFrame();
+	}
+	return 0;
+}
+
+/**
+  Sets the absolute path to a local IGA (In-Game Actions) VDF file.
+  Use this during development to test Steam Input without uploading the VDF to Steamworks.
+  Must be called after initSteamInput() and before polling any actions.
+  Lua usage: local success = steamworks.setInputActionManifestFilePath("/full/path/to/steam_input_iga.vdf")
+  Returns true if successful, false otherwise.
+ */
+int OnSetInputActionManifestFilePath(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	const char* path = luaL_checkstring(L, 1);
+	bool result = steamInput->SetInputActionManifestFilePath(path);
+	lua_pushboolean(L, result ? 1 : 0);
+	return 1;
+}
+
+/**
+  Returns an array of connected controller handles.
+  Lua usage: local controllers = steamworks.getConnectedControllers()
+  Returns a table (array) of controller handle numbers, or an empty table if none.
+ */
+int OnGetConnectedControllers(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_newtable(L);
+		return 1;
+	}
+
+	InputHandle_t handles[STEAM_INPUT_MAX_COUNT];
+	int count = steamInput->GetConnectedControllers(handles);
+
+	lua_createtable(L, count, 0);
+	for (int i = 0; i < count; i++)
+	{
+		PushInputHandle(L, handles[i]);
+		lua_rawseti(L, -2, i + 1);
+	}
+	return 1;
+}
+
+/**
+  Returns the input type string for a controller handle.
+  Lua usage: local inputType = steamworks.getInputTypeForHandle(controllerHandle)
+  Returns a string like "XBoxOne", "PS5", "SteamDeck", "SteamController", etc.
+ */
+int OnGetInputTypeForHandle(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushstring(L, "Unknown");
+		return 1;
+	}
+
+	InputHandle_t handle = CheckInputHandle(L, 1);
+	ESteamInputType inputType = steamInput->GetInputTypeForHandle(handle);
+	lua_pushstring(L, GetInputTypeString(inputType));
+	return 1;
+}
+
+/**
+  Returns a handle for the named action set.
+  Lua usage: local handle = steamworks.getActionSetHandle("GameControls")
+  Returns a number (the handle) or 0 if not found.
+ */
+int OnGetActionSetHandle(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushnumber(L, 0);
+		return 1;
+	}
+
+	const char* name = luaL_checkstring(L, 1);
+	InputActionSetHandle_t handle = steamInput->GetActionSetHandle(name);
+	lua_pushnumber(L, (lua_Number)handle);
+	return 1;
+}
+
+/**
+  Activates an action set for a controller.
+  Lua usage: steamworks.activateActionSet(controllerHandle, actionSetHandle)
+  Pass STEAM_INPUT_HANDLE_ALL_CONTROLLERS (0xFFFFFFFFFFFFFFFF) as controller to apply to all.
+ */
+int OnActivateActionSet(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		return 0;
+	}
+
+	InputHandle_t controller = CheckInputHandle(L, 1);
+	InputActionSetHandle_t actionSet = (InputActionSetHandle_t)luaL_checknumber(L, 2);
+	steamInput->ActivateActionSet(controller, actionSet);
+	return 0;
+}
+
+/**
+  Returns a handle for the named digital action.
+  Lua usage: local handle = steamworks.getDigitalActionHandle("confirm")
+  Returns a number (the handle) or 0 if not found.
+ */
+int OnGetDigitalActionHandle(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushnumber(L, 0);
+		return 1;
+	}
+
+	const char* name = luaL_checkstring(L, 1);
+	InputDigitalActionHandle_t handle = steamInput->GetDigitalActionHandle(name);
+	lua_pushnumber(L, (lua_Number)handle);
+	return 1;
+}
+
+/**
+  Returns the current state of a digital action for a controller.
+  Lua usage: local data = steamworks.getDigitalActionData(controllerHandle, actionHandle)
+  Returns a table: { bState = true/false, bActive = true/false }
+ */
+int OnGetDigitalActionData(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_createtable(L, 0, 2);
+		lua_pushboolean(L, 0);
+		lua_setfield(L, -2, "bState");
+		lua_pushboolean(L, 0);
+		lua_setfield(L, -2, "bActive");
+		return 1;
+	}
+
+	InputHandle_t controller = CheckInputHandle(L, 1);
+	InputDigitalActionHandle_t action = (InputDigitalActionHandle_t)luaL_checknumber(L, 2);
+	InputDigitalActionData_t data = steamInput->GetDigitalActionData(controller, action);
+
+	lua_createtable(L, 0, 2);
+	lua_pushboolean(L, data.bState ? 1 : 0);
+	lua_setfield(L, -2, "bState");
+	lua_pushboolean(L, data.bActive ? 1 : 0);
+	lua_setfield(L, -2, "bActive");
+	return 1;
+}
+
+/**
+  Returns a handle for the named analog action.
+  Lua usage: local handle = steamworks.getAnalogActionHandle("move")
+  Returns a number (the handle) or 0 if not found.
+ */
+int OnGetAnalogActionHandle(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushnumber(L, 0);
+		return 1;
+	}
+
+	const char* name = luaL_checkstring(L, 1);
+	InputAnalogActionHandle_t handle = steamInput->GetAnalogActionHandle(name);
+	lua_pushnumber(L, (lua_Number)handle);
+	return 1;
+}
+
+/**
+  Returns the current state of an analog action for a controller.
+  Lua usage: local data = steamworks.getAnalogActionData(controllerHandle, actionHandle)
+  Returns a table: { x = number, y = number, bActive = true/false }
+ */
+int OnGetAnalogActionData(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_createtable(L, 0, 3);
+		lua_pushnumber(L, 0);
+		lua_setfield(L, -2, "x");
+		lua_pushnumber(L, 0);
+		lua_setfield(L, -2, "y");
+		lua_pushboolean(L, 0);
+		lua_setfield(L, -2, "bActive");
+		return 1;
+	}
+
+	InputHandle_t controller = CheckInputHandle(L, 1);
+	InputAnalogActionHandle_t action = (InputAnalogActionHandle_t)luaL_checknumber(L, 2);
+	InputAnalogActionData_t data = steamInput->GetAnalogActionData(controller, action);
+
+	lua_createtable(L, 0, 3);
+	lua_pushnumber(L, data.x);
+	lua_setfield(L, -2, "x");
+	lua_pushnumber(L, data.y);
+	lua_setfield(L, -2, "y");
+	lua_pushboolean(L, data.bActive ? 1 : 0);
+	lua_setfield(L, -2, "bActive");
+	return 1;
+}
+
+/**
+  Returns the action origins (physical buttons) for a digital action.
+  Lua usage: local origins = steamworks.getDigitalActionOrigins(controllerHandle, actionSetHandle, actionHandle)
+  Returns a table (array) of origin integer values.
+ */
+int OnGetDigitalActionOrigins(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_newtable(L);
+		return 1;
+	}
+
+	InputHandle_t controller = CheckInputHandle(L, 1);
+	InputActionSetHandle_t actionSet = (InputActionSetHandle_t)luaL_checknumber(L, 2);
+	InputDigitalActionHandle_t action = (InputDigitalActionHandle_t)luaL_checknumber(L, 3);
+
+	EInputActionOrigin origins[STEAM_INPUT_MAX_ORIGINS];
+	int count = steamInput->GetDigitalActionOrigins(controller, actionSet, action, origins);
+
+	lua_createtable(L, count, 0);
+	for (int i = 0; i < count; i++)
+	{
+		lua_pushinteger(L, (lua_Integer)origins[i]);
+		lua_rawseti(L, -2, i + 1);
+	}
+	return 1;
+}
+
+/**
+  Returns the action origins (physical buttons) for an analog action.
+  Lua usage: local origins = steamworks.getAnalogActionOrigins(controllerHandle, actionSetHandle, actionHandle)
+  Returns a table (array) of origin integer values.
+ */
+int OnGetAnalogActionOrigins(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_newtable(L);
+		return 1;
+	}
+
+	InputHandle_t controller = CheckInputHandle(L, 1);
+	InputActionSetHandle_t actionSet = (InputActionSetHandle_t)luaL_checknumber(L, 2);
+	InputAnalogActionHandle_t action = (InputAnalogActionHandle_t)luaL_checknumber(L, 3);
+
+	EInputActionOrigin origins[STEAM_INPUT_MAX_ORIGINS];
+	int count = steamInput->GetAnalogActionOrigins(controller, actionSet, action, origins);
+
+	lua_createtable(L, count, 0);
+	for (int i = 0; i < count; i++)
+	{
+		lua_pushinteger(L, (lua_Integer)origins[i]);
+		lua_rawseti(L, -2, i + 1);
+	}
+	return 1;
+}
+
+/**
+  Returns the file path to a PNG glyph image for a given action origin.
+  Lua usage: local path = steamworks.getGlyphForActionOrigin(origin, size)
+  size: "small" (32px), "medium" (128px), "large" (256px). Defaults to "medium".
+  Returns a string file path, or nil if unavailable.
+ */
+int OnGetGlyphForActionOrigin(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	EInputActionOrigin origin = (EInputActionOrigin)luaL_checkinteger(L, 1);
+
+	ESteamInputGlyphSize glyphSize = k_ESteamInputGlyphSize_Medium;
+	if (lua_isstring(L, 2))
+	{
+		const char* sizeStr = lua_tostring(L, 2);
+		if (strcmp(sizeStr, "small") == 0)
+			glyphSize = k_ESteamInputGlyphSize_Small;
+		else if (strcmp(sizeStr, "large") == 0)
+			glyphSize = k_ESteamInputGlyphSize_Large;
+	}
+
+	const char* path = steamInput->GetGlyphPNGForActionOrigin(origin, glyphSize, 0);
+	if (path && path[0] != '\0')
+	{
+		lua_pushstring(L, path);
+	}
+	else
+	{
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+/**
+  Returns a localized string for a given action origin (e.g. "A Button", "Cross").
+  Lua usage: local name = steamworks.getStringForActionOrigin(origin)
+  Returns a string, or nil if unavailable.
+ */
+int OnGetStringForActionOrigin(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	EInputActionOrigin origin = (EInputActionOrigin)luaL_checkinteger(L, 1);
+	const char* str = steamInput->GetStringForActionOrigin(origin);
+	if (str && str[0] != '\0')
+	{
+		lua_pushstring(L, str);
+	}
+	else
+	{
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+/**
+  Opens the Steam Input binding panel for the given controller.
+  Lua usage: steamworks.showBindingPanel(controllerHandle)
+  Returns true if the overlay was shown, false otherwise.
+ */
+int OnShowBindingPanel(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	InputHandle_t controller = CheckInputHandle(L, 1);
+	bool result = steamInput->ShowBindingPanel(controller);
+	lua_pushboolean(L, result ? 1 : 0);
+	return 1;
+}
+
+/**
+  Triggers vibration on a controller.
+  Lua usage: steamworks.triggerVibration(controllerHandle, leftSpeed, rightSpeed)
+  leftSpeed and rightSpeed are 0-65535.
+ */
+int OnTriggerVibration(lua_State* L)
+{
+	auto steamInput = SteamInput();
+	if (!steamInput)
+	{
+		return 0;
+	}
+
+	InputHandle_t controller = CheckInputHandle(L, 1);
+	unsigned short left = (unsigned short)luaL_checkinteger(L, 2);
+	unsigned short right = (unsigned short)luaL_checkinteger(L, 3);
+	steamInput->TriggerVibration(controller, left, right);
+	return 0;
+}
+
 int OnIsSteamDeck(lua_State* L) {
     auto utils = SteamUtils();
     if (!utils) {
@@ -3641,6 +4127,12 @@ int OnFinalizing(lua_State* luaStatePointer)
 	// This must be done after deleting the RuntimeContext above.
 	if (RuntimeContext::GetInstanceCount() <= 0)
 	{
+		// Shutdown Steam Input before the main Steam API.
+		auto steamInputPointer = SteamInput();
+		if (steamInputPointer)
+		{
+			steamInputPointer->Shutdown();
+		}
 		SteamAPI_Shutdown();
 	}
 	return 0;
@@ -3732,7 +4224,27 @@ CORONA_EXPORT int luaopen_plugin_steamworks(lua_State* luaStatePointer)
             { "deleteFile", OnDeleteFile },
             { "getUserStorage", OnGetUserStorage },
             { "isSteamDeck", OnIsSteamDeck },
-            
+
+			// Steam Input functions
+			{ "initSteamInput", OnInitSteamInput },
+			{ "shutdownSteamInput", OnShutdownSteamInput },
+			{ "runFrame", OnRunFrame },
+			{ "setInputActionManifestFilePath", OnSetInputActionManifestFilePath },
+			{ "getConnectedControllers", OnGetConnectedControllers },
+			{ "getInputTypeForHandle", OnGetInputTypeForHandle },
+			{ "getActionSetHandle", OnGetActionSetHandle },
+			{ "activateActionSet", OnActivateActionSet },
+			{ "getDigitalActionHandle", OnGetDigitalActionHandle },
+			{ "getDigitalActionData", OnGetDigitalActionData },
+			{ "getAnalogActionHandle", OnGetAnalogActionHandle },
+			{ "getAnalogActionData", OnGetAnalogActionData },
+			{ "getDigitalActionOrigins", OnGetDigitalActionOrigins },
+			{ "getAnalogActionOrigins", OnGetAnalogActionOrigins },
+			{ "getGlyphForActionOrigin", OnGetGlyphForActionOrigin },
+			{ "getStringForActionOrigin", OnGetStringForActionOrigin },
+			{ "showBindingPanel", OnShowBindingPanel },
+			{ "triggerVibration", OnTriggerVibration },
+
 			{ nullptr, nullptr }
 		};
 		lua_createtable(luaStatePointer, 0, 0);
@@ -3883,6 +4395,14 @@ CORONA_EXPORT int luaopen_plugin_steamworks(lua_State* luaStatePointer)
 		{
 			CoronaLuaError(luaStatePointer, "Failed to initialize connection with Steam client.");
 		}
+	}
+
+	// Initialize Steam Input so controller polling works automatically via SteamAPI_RunCallbacks().
+	// Pass false so RunFrame() is called automatically, so there is no need to call it manually each frame.
+	auto steamInputPointer = SteamInput();
+	if (steamInputPointer)
+	{
+		steamInputPointer->Init(false);
 	}
 
 	// Set up a callback to receive Steam's info/warning messages to be outputted to Corona's logging functions.
