@@ -166,6 +166,124 @@ bool DispatchGameOverlayActivatedEventTask::PushLuaEventTableTo(lua_State* luaSt
 
 
 //---------------------------------------------------------------------------------
+// Gamepad Text Input Helpers
+//---------------------------------------------------------------------------------
+
+bool CopyEnteredGamepadTextTo(std::string& text)
+{
+	text.clear();
+
+	auto steamUtilsPointer = SteamUtils();
+	if (!steamUtilsPointer)
+	{
+		return false;
+	}
+
+	// The reported length excludes the null terminator, which Steam also writes.
+	uint32 length = steamUtilsPointer->GetEnteredGamepadTextLength();
+	std::vector<char> buffer(length + 1, '\0');
+	if (!steamUtilsPointer->GetEnteredGamepadTextInput(buffer.data(), (uint32)buffer.size()))
+	{
+		return false;
+	}
+	text = buffer.data();
+	return true;
+}
+
+
+//---------------------------------------------------------------------------------
+// DispatchGamepadTextInputDismissedEventTask Class Members
+//---------------------------------------------------------------------------------
+
+const char DispatchGamepadTextInputDismissedEventTask::kLuaEventName[] = "gamepadTextInputDismissed";
+
+DispatchGamepadTextInputDismissedEventTask::DispatchGamepadTextInputDismissedEventTask()
+:	fWasSubmitted(false),
+	fLength(0)
+{
+}
+
+DispatchGamepadTextInputDismissedEventTask::~DispatchGamepadTextInputDismissedEventTask()
+{
+}
+
+void DispatchGamepadTextInputDismissedEventTask::AcquireEventDataFrom(const GamepadTextInputDismissed_t& steamEventData)
+{
+	fWasSubmitted = steamEventData.m_bSubmitted ? true : false;
+	fLength = steamEventData.m_unSubmittedText;
+
+	// Read the text now, while Steam still holds it for this dismissal.
+	fText.clear();
+	if (fWasSubmitted)
+	{
+		CopyEnteredGamepadTextTo(fText);
+	}
+}
+
+const char* DispatchGamepadTextInputDismissedEventTask::GetLuaEventName() const
+{
+	return kLuaEventName;
+}
+
+bool DispatchGamepadTextInputDismissedEventTask::PushLuaEventTableTo(lua_State* luaStatePointer) const
+{
+	// Validate.
+	if (!luaStatePointer)
+	{
+		return false;
+	}
+
+	// Push the event data to Lua.
+	CoronaLuaNewEvent(luaStatePointer, kLuaEventName);
+	lua_pushboolean(luaStatePointer, fWasSubmitted ? 1 : 0);
+	lua_setfield(luaStatePointer, -2, "submitted");
+	lua_pushinteger(luaStatePointer, (lua_Integer)fLength);
+	lua_setfield(luaStatePointer, -2, "length");
+	lua_pushstring(luaStatePointer, fText.c_str());
+	lua_setfield(luaStatePointer, -2, "text");
+	return true;
+}
+
+
+//---------------------------------------------------------------------------------
+// DispatchFloatingGamepadTextInputDismissedEventTask Class Members
+//---------------------------------------------------------------------------------
+
+const char DispatchFloatingGamepadTextInputDismissedEventTask::kLuaEventName[] = "floatingGamepadTextInputDismissed";
+
+DispatchFloatingGamepadTextInputDismissedEventTask::DispatchFloatingGamepadTextInputDismissedEventTask()
+{
+}
+
+DispatchFloatingGamepadTextInputDismissedEventTask::~DispatchFloatingGamepadTextInputDismissedEventTask()
+{
+}
+
+void DispatchFloatingGamepadTextInputDismissedEventTask::AcquireEventDataFrom(
+	const FloatingGamepadTextInputDismissed_t& steamEventData)
+{
+	// The Steam event carries no data.
+}
+
+const char* DispatchFloatingGamepadTextInputDismissedEventTask::GetLuaEventName() const
+{
+	return kLuaEventName;
+}
+
+bool DispatchFloatingGamepadTextInputDismissedEventTask::PushLuaEventTableTo(lua_State* luaStatePointer) const
+{
+	// Validate.
+	if (!luaStatePointer)
+	{
+		return false;
+	}
+
+	CoronaLuaNewEvent(luaStatePointer, kLuaEventName);
+	return true;
+}
+
+
+//---------------------------------------------------------------------------------
 // DispatchGetAuthSessionTicketResponseEventTask Class Members
 //---------------------------------------------------------------------------------
 

@@ -244,6 +244,8 @@ class RuntimeContext
 		/** Set up global Steam event handlers via their macros. */
 		STEAM_CALLBACK(RuntimeContext, OnSteamAvatarImageLoaded, AvatarImageLoaded_t);
 		STEAM_CALLBACK(RuntimeContext, OnSteamGameOverlayActivated, GameOverlayActivated_t);
+		STEAM_CALLBACK(RuntimeContext, OnSteamGamepadTextInputDismissed, GamepadTextInputDismissed_t);
+		STEAM_CALLBACK(RuntimeContext, OnSteamFloatingGamepadTextInputDismissed, FloatingGamepadTextInputDismissed_t);
 		STEAM_CALLBACK(RuntimeContext, OnGetAuthSessionTicketResponse, GetAuthSessionTicketResponse_t);
 		STEAM_CALLBACK(RuntimeContext, OnSteamMicrotransactionAuthorizationReceived, MicroTxnAuthorizationResponse_t);
 		STEAM_CALLBACK(RuntimeContext, OnSteamInventoryResultReady, SteamInventoryResultReady_t);

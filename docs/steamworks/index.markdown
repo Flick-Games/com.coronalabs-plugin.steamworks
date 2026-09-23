@@ -69,6 +69,10 @@ application =
 
 #### [steamworks.getAchievementNames()][plugin.steamworks.getAchievementNames]
 
+#### [steamworks.getEnteredGamepadTextInput()][plugin.steamworks.getEnteredGamepadTextInput]
+
+#### [steamworks.getGlyphForActionOrigin()][plugin.steamworks.getGlyphForActionOrigin]
+
 #### [steamworks.getUserImageInfo()][plugin.steamworks.getUserImageInfo]
 
 #### [steamworks.getUserInfo()][plugin.steamworks.getUserInfo]
@@ -115,7 +119,11 @@ application =
 
 #### [steamworks.setUserStatValues()][plugin.steamworks.setUserStatValues]
 
+#### [steamworks.showFloatingGamepadTextInput()][plugin.steamworks.showFloatingGamepadTextInput]
+
 #### [steamworks.showGameOverlay()][plugin.steamworks.showGameOverlay]
+
+#### [steamworks.showGamepadTextInput()][plugin.steamworks.showGamepadTextInput]
 
 #### [steamworks.showStoreOverlay()][plugin.steamworks.showStoreOverlay]
 
@@ -144,6 +152,10 @@ application =
 #### [achievementInfoUpdate][plugin.steamworks.event.achievementInfoUpdate]
 
 #### [activePlayerCount][plugin.steamworks.event.activePlayerCount]
+
+#### [floatingGamepadTextInputDismissed][plugin.steamworks.event.floatingGamepadTextInputDismissed]
+
+#### [gamepadTextInputDismissed][plugin.steamworks.event.gamepadTextInputDismissed]
 
 #### [inventoryResultReady][plugin.steamworks.event.inventoryResultReady]
 
