@@ -109,6 +109,49 @@ class DispatchGameOverlayActivatedEventTask : public BaseDispatchEventTask
 		bool fWasActivated;
 };
 
+/**
+  Copies the text most recently submitted via ISteamUtils::ShowGamepadTextInput() into the given string.
+  @param text String to receive the submitted text. Cleared on failure.
+  @return Returns true if the text was retrieved. Returns false if Steam is unavailable or no text was submitted.
+ */
+bool CopyEnteredGamepadTextTo(std::string& text);
+
+
+/** Dispatches a Steam "GamepadTextInputDismissed_t" event and its data to Lua. */
+class DispatchGamepadTextInputDismissedEventTask : public BaseDispatchEventTask
+{
+	public:
+		static const char kLuaEventName[];
+
+		DispatchGamepadTextInputDismissedEventTask();
+		virtual ~DispatchGamepadTextInputDismissedEventTask();
+
+		void AcquireEventDataFrom(const GamepadTextInputDismissed_t& steamEventData);
+		virtual const char* GetLuaEventName() const;
+		virtual bool PushLuaEventTableTo(lua_State* luaStatePointer) const;
+
+	private:
+		bool fWasSubmitted;
+		uint32 fLength;
+		std::string fText;
+};
+
+
+/** Dispatches a Steam "FloatingGamepadTextInputDismissed_t" event to Lua. */
+class DispatchFloatingGamepadTextInputDismissedEventTask : public BaseDispatchEventTask
+{
+	public:
+		static const char kLuaEventName[];
+
+		DispatchFloatingGamepadTextInputDismissedEventTask();
+		virtual ~DispatchFloatingGamepadTextInputDismissedEventTask();
+
+		void AcquireEventDataFrom(const FloatingGamepadTextInputDismissed_t& steamEventData);
+		virtual const char* GetLuaEventName() const;
+		virtual bool PushLuaEventTableTo(lua_State* luaStatePointer) const;
+};
+
+
 /** Dispatches a Steam "GetAuthSessionTicketResponse_t" event and its data to Lua. */
 class DispatchGetAuthSessionTicketResponseEventTask : public BaseDispatchEventTask
 {

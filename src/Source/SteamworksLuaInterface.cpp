@@ -3993,8 +3993,11 @@ int OnGetAnalogActionOrigins(lua_State* L)
 
 /**
   Returns the file path to a PNG glyph image for a given action origin.
-  Lua usage: local path = steamworks.getGlyphForActionOrigin(origin, size)
+  Lua usage: local path = steamworks.getGlyphForActionOrigin(origin, size, styleFlags)
   size: "small" (32px), "medium" (128px), "large" (256px). Defaults to "medium".
+  styleFlags: optional integer of ESteamInputGlyphStyle flags. Defaults to 0 (Knockout).
+    Pick one base style: 0x0 Knockout, 0x1 Light, 0x2 Dark.
+    Optionally add modifiers: 0x10 NeutralColorABXY, 0x20 SolidABXY.
   Returns a string file path, or nil if unavailable.
  */
 int OnGetGlyphForActionOrigin(lua_State* L)
@@ -4018,7 +4021,13 @@ int OnGetGlyphForActionOrigin(lua_State* L)
 			glyphSize = k_ESteamInputGlyphSize_Large;
 	}
 
-	const char* path = steamInput->GetGlyphPNGForActionOrigin(origin, glyphSize, 0);
+	uint32 styleFlags = ESteamInputGlyphStyle_Knockout;
+	if (lua_type(L, 3) == LUA_TNUMBER)
+	{
+		styleFlags = (uint32)lua_tointeger(L, 3);
+	}
+
+	const char* path = steamInput->GetGlyphPNGForActionOrigin(origin, glyphSize, styleFlags);
 	if (path && path[0] != '\0')
 	{
 		lua_pushstring(L, path);
@@ -4107,6 +4116,119 @@ int OnIsSteamDeck(lua_State* L) {
     bool isDeck = utils->IsSteamRunningOnSteamDeck();
     lua_pushboolean(L, isDeck ? 1 : 0);
     return 1;
+}
+
+/**
+  Opens Steam's modal gamepad text entry (Big Picture / Steam Deck keyboard).
+  Lua usage: local wasShown = steamworks.showGamepadTextInput(mode, lineMode, description, maxChars, existingText)
+  mode: "normal" or "password". Defaults to "normal".
+  lineMode: "singleLine" or "multipleLines". Defaults to "singleLine".
+  description: optional prompt shown above the keyboard. Defaults to "".
+  maxChars: optional maximum text length. Defaults to 256.
+  existingText: optional text to pre-fill. Defaults to "".
+  Returns true if the keyboard was shown. When it closes, a "gamepadTextInputDismissed"
+  event is dispatched to listeners added via steamworks.addEventListener().
+ */
+int OnShowGamepadTextInput(lua_State* L)
+{
+	auto utils = SteamUtils();
+	if (!utils)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	EGamepadTextInputMode inputMode = k_EGamepadTextInputModeNormal;
+	if (lua_type(L, 1) == LUA_TSTRING && strcmp(lua_tostring(L, 1), "password") == 0)
+	{
+		inputMode = k_EGamepadTextInputModePassword;
+	}
+
+	EGamepadTextInputLineMode lineMode = k_EGamepadTextInputLineModeSingleLine;
+	if (lua_type(L, 2) == LUA_TSTRING && strcmp(lua_tostring(L, 2), "multipleLines") == 0)
+	{
+		lineMode = k_EGamepadTextInputLineModeMultipleLines;
+	}
+
+	const char* description = (lua_type(L, 3) == LUA_TSTRING) ? lua_tostring(L, 3) : "";
+
+	uint32 maxChars = 256;
+	if (lua_type(L, 4) == LUA_TNUMBER && lua_tointeger(L, 4) > 0)
+	{
+		maxChars = (uint32)lua_tointeger(L, 4);
+	}
+
+	const char* existingText = (lua_type(L, 5) == LUA_TSTRING) ? lua_tostring(L, 5) : "";
+
+	bool wasShown = utils->ShowGamepadTextInput(inputMode, lineMode, description, maxChars, existingText);
+	lua_pushboolean(L, wasShown ? 1 : 0);
+	return 1;
+}
+
+/**
+  Returns the text most recently submitted via showGamepadTextInput().
+  Lua usage: local text = steamworks.getEnteredGamepadTextInput()
+  Returns a string (empty if nothing has been submitted), or nil if Steam is unavailable.
+  The "gamepadTextInputDismissed" event already carries this text as event.text.
+ */
+int OnGetEnteredGamepadTextInput(lua_State* L)
+{
+	auto utils = SteamUtils();
+	if (!utils)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	std::string text;
+	if (!CopyEnteredGamepadTextTo(text))
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+	lua_pushstring(L, text.c_str());
+	return 1;
+}
+
+/**
+  Opens Steam's non-modal floating keyboard (Steam Deck). Text is typed straight into
+  the focused text field as ordinary key events, so nothing needs to be read back.
+  Lua usage: local wasShown = steamworks.showFloatingGamepadTextInput(mode, x, y, width, height)
+  mode: "singleLine", "multipleLines", "email" or "numeric". Defaults to "singleLine".
+  x, y, width, height: the text field's rectangle in window pixels, so Steam can avoid
+  covering it. Default to 0.
+  Returns true if the keyboard was shown. When it closes, a
+  "floatingGamepadTextInputDismissed" event is dispatched.
+ */
+int OnShowFloatingGamepadTextInput(lua_State* L)
+{
+	auto utils = SteamUtils();
+	if (!utils)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	EFloatingGamepadTextInputMode keyboardMode = k_EFloatingGamepadTextInputModeModeSingleLine;
+	if (lua_type(L, 1) == LUA_TSTRING)
+	{
+		const char* modeStr = lua_tostring(L, 1);
+		if (strcmp(modeStr, "multipleLines") == 0)
+			keyboardMode = k_EFloatingGamepadTextInputModeModeMultipleLines;
+		else if (strcmp(modeStr, "email") == 0)
+			keyboardMode = k_EFloatingGamepadTextInputModeModeEmail;
+		else if (strcmp(modeStr, "numeric") == 0)
+			keyboardMode = k_EFloatingGamepadTextInputModeModeNumeric;
+	}
+
+	int x = (lua_type(L, 2) == LUA_TNUMBER) ? (int)lua_tointeger(L, 2) : 0;
+	int y = (lua_type(L, 3) == LUA_TNUMBER) ? (int)lua_tointeger(L, 3) : 0;
+	int width = (lua_type(L, 4) == LUA_TNUMBER) ? (int)lua_tointeger(L, 4) : 0;
+	int height = (lua_type(L, 5) == LUA_TNUMBER) ? (int)lua_tointeger(L, 5) : 0;
+
+	bool wasShown = utils->ShowFloatingGamepadTextInput(keyboardMode, x, y, width, height);
+	lua_pushboolean(L, wasShown ? 1 : 0);
+	return 1;
 }
 /**
   Called when the Lua plugin table is being destroyed.
@@ -4224,6 +4346,9 @@ CORONA_EXPORT int luaopen_plugin_steamworks(lua_State* luaStatePointer)
             { "deleteFile", OnDeleteFile },
             { "getUserStorage", OnGetUserStorage },
             { "isSteamDeck", OnIsSteamDeck },
+			{ "showGamepadTextInput", OnShowGamepadTextInput },
+			{ "getEnteredGamepadTextInput", OnGetEnteredGamepadTextInput },
+			{ "showFloatingGamepadTextInput", OnShowFloatingGamepadTextInput },
 
 			// Steam Input functions
 			{ "initSteamInput", OnInitSteamInput },

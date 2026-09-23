@@ -404,6 +404,32 @@ void RuntimeContext::OnSteamGameOverlayActivated(GameOverlayActivated_t* eventDa
 	OnHandleGlobalSteamEvent<GameOverlayActivated_t, DispatchGameOverlayActivatedEventTask>(eventDataPointer);
 }
 
+void RuntimeContext::OnSteamGamepadTextInputDismissed(GamepadTextInputDismissed_t* eventDataPointer)
+{
+	// Validate.
+	if (!eventDataPointer)
+	{
+		return;
+	}
+
+	// Ignore the event if it belongs to another application.
+	// Note: This struct carries an app ID field rather than the "m_nGameID" field that
+	//       OnHandleGlobalSteamEventWithGameId() expects, so the check is done here.
+	auto steamUtilsPointer = SteamUtils();
+	if (steamUtilsPointer && (steamUtilsPointer->GetAppID() != eventDataPointer->m_unAppID))
+	{
+		return;
+	}
+
+	OnHandleGlobalSteamEvent<GamepadTextInputDismissed_t, DispatchGamepadTextInputDismissedEventTask>(eventDataPointer);
+}
+
+void RuntimeContext::OnSteamFloatingGamepadTextInputDismissed(FloatingGamepadTextInputDismissed_t* eventDataPointer)
+{
+	OnHandleGlobalSteamEvent<
+			FloatingGamepadTextInputDismissed_t, DispatchFloatingGamepadTextInputDismissedEventTask>(eventDataPointer);
+}
+
 void RuntimeContext::OnGetAuthSessionTicketResponse(GetAuthSessionTicketResponse_t* eventDataPointer)
 {
 	OnHandleGlobalSteamEvent<GetAuthSessionTicketResponse_t, DispatchGetAuthSessionTicketResponseEventTask>(eventDataPointer);
