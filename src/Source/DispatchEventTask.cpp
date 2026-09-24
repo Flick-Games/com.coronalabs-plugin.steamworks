@@ -179,7 +179,8 @@ bool CopyEnteredGamepadTextTo(std::string& text)
 		return false;
 	}
 
-	// The reported length excludes the null terminator, which Steam also writes.
+	// The reported length already counts the null terminator ("hello" reports 6, a cancel reports 1).
+	// The extra byte is kept as a guard in case that ever changes.
 	uint32 length = steamUtilsPointer->GetEnteredGamepadTextLength();
 	std::vector<char> buffer(length + 1, '\0');
 	if (!steamUtilsPointer->GetEnteredGamepadTextInput(buffer.data(), (uint32)buffer.size()))

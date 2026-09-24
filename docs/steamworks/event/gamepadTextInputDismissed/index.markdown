@@ -25,7 +25,7 @@ _[String][api.type.String]._ Always `"gamepadTextInputDismissed"`.
 _[Boolean][api.type.Boolean]._ `true` if the player submitted text, `false` if they cancelled.
 
 ##### event.length
-_[Number][api.type.Number]._ Length of the submitted text as reported by Steam. `0` when cancelled.
+_[Number][api.type.Number]._ Buffer length as reported by Steam, which counts the terminating null: `"hello"` reports `6`, and a cancel typically reports `1`. Use `event.text` (or `#event.text`) rather than this for the text itself.
 
 ##### event.text
 _[String][api.type.String]._ The submitted text. An empty string when cancelled.
