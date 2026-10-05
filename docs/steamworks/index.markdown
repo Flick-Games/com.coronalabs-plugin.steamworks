@@ -73,11 +73,19 @@ application =
 
 #### [steamworks.getGlyphForActionOrigin()][plugin.steamworks.getGlyphForActionOrigin]
 
+#### [steamworks.getSteamHardwareDefaultConfig()][plugin.steamworks.getSteamHardwareDefaultConfig]
+
 #### [steamworks.getUserImageInfo()][plugin.steamworks.getUserImageInfo]
 
 #### [steamworks.getUserInfo()][plugin.steamworks.getUserInfo]
 
 #### [steamworks.getUserStatValue()][plugin.steamworks.getUserStatValue]
+
+#### [steamworks.isRunningOnSteamHardware()][plugin.steamworks.isRunningOnSteamHardware]
+
+#### [steamworks.isRunningUnderProton()][plugin.steamworks.isRunningUnderProton]
+
+#### [steamworks.isSteamDeck()][plugin.steamworks.isSteamDeck]
 
 #### [steamworks.newImageRect()][plugin.steamworks.newImageRect]
 

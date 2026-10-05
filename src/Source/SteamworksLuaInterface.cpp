@@ -3631,6 +3631,11 @@ static const char* GetInputTypeString(ESteamInputType inputType)
 		case k_ESteamInputType_PS3Controller:      return "PS3";
 		case k_ESteamInputType_PS5Controller:      return "PS5";
 		case k_ESteamInputType_SteamDeckController: return "SteamDeck";
+		// Added in Steamworks SDK 1.65
+		case k_ESteamInputType_SteamOSHandheld:          return "SteamOSHandheld";
+		case k_ESteamInputType_Switch2ProController:     return "Switch2Pro";
+		case k_ESteamInputType_SteamController2026:      return "SteamController2026";
+		case k_ESteamInputType_SteamFrameControllerPair: return "SteamFrameController";
 		default:                                    return "Unknown";
 	}
 }
@@ -4106,16 +4111,117 @@ int OnTriggerVibration(lua_State* L)
 	return 0;
 }
 
-int OnIsSteamDeck(lua_State* L) {
-    auto utils = SteamUtils();
-    if (!utils) {
-        lua_pushboolean(L, 0);
-        return 1;
-    }
+/**
+  Returns the Lua name for an ESteamHardwareType value (Steamworks SDK 1.65+).
+ */
+static const char* GetSteamHardwareTypeString(ESteamHardwareType hardwareType)
+{
+	switch (hardwareType)
+	{
+		case k_ESteamHardwareTypeSteamDeck:    return "steamDeck";
+		case k_ESteamHardwareTypeSteamMachine: return "steamMachine";
+		case k_ESteamHardwareTypeSteamFrame:   return "steamFrame";
+		default:                               return "none";
+	}
+}
 
-    bool isDeck = utils->IsSteamRunningOnSteamDeck();
-    lua_pushboolean(L, isDeck ? 1 : 0);
-    return 1;
+/**
+  Returns the Lua name for an ESteamHardwareDefaultConfig value (Steamworks SDK 1.65+).
+ */
+static const char* GetSteamHardwareDefaultConfigString(ESteamHardwareDefaultConfig config)
+{
+	switch (config)
+	{
+		case k_ESteamHardwareDefaultConfigLow:          return "low";
+		case k_ESteamHardwareDefaultConfigMedium:       return "medium";
+		case k_ESteamHardwareDefaultConfigHigh:         return "high";
+		case k_ESteamHardwareDefaultConfigMax:          return "max";
+		case k_ESteamHardwareDefaultConfigSteamDeck:    return "steamDeck";
+		case k_ESteamHardwareDefaultConfigSteamMachine: return "steamMachine";
+		case k_ESteamHardwareDefaultConfigSteamFrame:   return "steamFrame";
+		default:                                        return "none";
+	}
+}
+
+/**
+  Returns which Steam hardware the game is running on.
+  Lua usage: local hardware = steamworks.isRunningOnSteamHardware()
+  Returns "steamDeck", "steamMachine", "steamFrame", or "none" when not on Steam
+  hardware or when Steam is unavailable. Wraps ISteamUtils::IsRunningOnSteamHardware().
+ */
+int OnIsRunningOnSteamHardware(lua_State* L)
+{
+	auto utils = SteamUtils();
+	if (!utils)
+	{
+		lua_pushstring(L, "none");
+		return 1;
+	}
+
+	lua_pushstring(L, GetSteamHardwareTypeString(utils->IsRunningOnSteamHardware()));
+	return 1;
+}
+
+/**
+  Returns the default settings configuration Steam suggests for this device, as set
+  per device on the Steamworks partner site.
+  Lua usage: local config = steamworks.getSteamHardwareDefaultConfig()
+  Returns "low", "medium", "high", "max", "steamDeck", "steamMachine", "steamFrame",
+  or "none" when no default is set or Steam is unavailable.
+  Wraps ISteamUtils::GetSteamHardwareDefaultConfig().
+ */
+int OnGetSteamHardwareDefaultConfig(lua_State* L)
+{
+	auto utils = SteamUtils();
+	if (!utils)
+	{
+		lua_pushstring(L, "none");
+		return 1;
+	}
+
+	lua_pushstring(L, GetSteamHardwareDefaultConfigString(utils->GetSteamHardwareDefaultConfig()));
+	return 1;
+}
+
+/**
+  Returns true when the game is running under the Proton compatibility layer
+  (a Windows build on Steam Deck, Steam Machine or Linux).
+  Lua usage: local isProton = steamworks.isRunningUnderProton()
+  Wraps ISteamUtils::IsRunningUnderProton().
+ */
+int OnIsRunningUnderProton(lua_State* L)
+{
+	auto utils = SteamUtils();
+	if (!utils)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	lua_pushboolean(L, utils->IsRunningUnderProton() ? 1 : 0);
+	return 1;
+}
+
+/**
+  Returns true when the game is running on a Steam Deck.
+  Lua usage: local isDeck = steamworks.isSteamDeck()
+  Kept for existing callers; new code should prefer isRunningOnSteamHardware(),
+  which also recognises Steam Machine and Steam Frame. Built on
+  ISteamUtils::IsRunningOnSteamHardware() because IsSteamRunningOnSteamDeck() was
+  deprecated in Steamworks SDK 1.65.
+ */
+int OnIsSteamDeck(lua_State* L)
+{
+	auto utils = SteamUtils();
+	if (!utils)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	bool isDeck = (utils->IsRunningOnSteamHardware() == k_ESteamHardwareTypeSteamDeck);
+	lua_pushboolean(L, isDeck ? 1 : 0);
+	return 1;
 }
 
 /**
@@ -4346,6 +4452,9 @@ CORONA_EXPORT int luaopen_plugin_steamworks(lua_State* luaStatePointer)
             { "deleteFile", OnDeleteFile },
             { "getUserStorage", OnGetUserStorage },
             { "isSteamDeck", OnIsSteamDeck },
+			{ "isRunningOnSteamHardware", OnIsRunningOnSteamHardware },
+			{ "getSteamHardwareDefaultConfig", OnGetSteamHardwareDefaultConfig },
+			{ "isRunningUnderProton", OnIsRunningUnderProton },
 			{ "showGamepadTextInput", OnShowGamepadTextInput },
 			{ "getEnteredGamepadTextInput", OnGetEnteredGamepadTextInput },
 			{ "showFloatingGamepadTextInput", OnShowFloatingGamepadTextInput },
