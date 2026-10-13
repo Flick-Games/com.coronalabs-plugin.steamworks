@@ -91,8 +91,37 @@ copy /y "..\Dependencies\Steam\redistributable_bin\steam_api.dll" "$(APPDATA)\Co
       <AdditionalDependencies>..\Dependencies\Corona\win32\lib\CoronaLabs.Corona.Native.lib;..\Dependencies\Corona\win32\lib\lua.lib;..\Dependencies\Steam\redistributable_bin\steam_api.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "$(APPDATA)\Corona Labs\Corona Simulator\Plugins"
-copy /y "..\Dependencies\Steam\redistributable_bin\steam_api.dll" "$(APPDATA)\Corona Labs\Corona Simulator\Plugins"</Command>
+      <Command>rem Flick: Release installs to the simulator, the built-plugins repo (Flick-Games/solar2d-plugins-built,
+rem cloned at Solar2DPlugins\games.flick) and the Steam content folder. The repo copy is the one other
+rem machines and the publish script use, so it must never fall behind. Debug stays simulator-only.
+set "STEAM_API=..\Dependencies\Steam\redistributable_bin\steam_api.dll"
+set "SIM_DIR=$(APPDATA)\Corona Labs\Corona Simulator\Plugins"
+set "REPO_DIR=$(APPDATA)\Solar2DPlugins\games.flick\plugin.steamworks"
+set "STEAM_DIR=C:\Work\Tools\Steamworks\sdk\tools\ContentBuilder\content\FlickSolitaire\Windows"
+rem Windows tar by full path: in a Git Bash build, plain tar is GNU tar, which cannot write zips
+set "WIN_TAR=%SystemRoot%\System32\tar.exe"
+
+copy /y "$(TargetPath)" "%SIM_DIR%" || exit /b 1
+copy /y "%STEAM_API%" "%SIM_DIR%" || exit /b 1
+
+if not exist "%REPO_DIR%\" (
+    echo warning: built-plugins repo not found at %REPO_DIR%, so it was not updated
+) else (
+    copy /y "$(TargetPath)" "%REPO_DIR%" || exit /b 1
+    copy /y "%STEAM_API%" "%REPO_DIR%" || exit /b 1
+    for %%P in (win32 win32-sim) do (
+        if exist "%REPO_DIR%\%%P\data.zip" del "%REPO_DIR%\%%P\data.zip"
+        "%WIN_TAR%" -a -c -f "%REPO_DIR%\%%P\data.zip" -C "%REPO_DIR%" plugin.steamworks.dll steam_api.dll || exit /b 1
+    )
+    echo Updated %REPO_DIR%: commit and push it so other machines get this build
+)
+
+if not exist "%STEAM_DIR%\" (
+    echo warning: Steam content folder not found at %STEAM_DIR%, so it was not updated
+) else (
+    copy /y "$(TargetPath)" "%STEAM_DIR%" || exit /b 1
+    copy /y "%STEAM_API%" "%STEAM_DIR%" || exit /b 1
+)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
