@@ -98,7 +98,7 @@ set "STEAM_API=..\Dependencies\Steam\redistributable_bin\steam_api.dll"
 set "SIM_DIR=$(APPDATA)\Corona Labs\Corona Simulator\Plugins"
 set "REPO_DIR=$(APPDATA)\Solar2DPlugins\games.flick\plugin.steamworks"
 set "STEAM_DIR=C:\Work\Tools\Steamworks\sdk\tools\ContentBuilder\content\FlickSolitaire\Windows"
-rem Windows tar by full path: in a Git Bash build, plain tar is GNU tar, which cannot write zips
+rem Windows tar by full path: in a Git Bash build, plain tar is GNU tar, which reads C:\ as a remote host
 set "WIN_TAR=%SystemRoot%\System32\tar.exe"
 
 copy /y "$(TargetPath)" "%SIM_DIR%" || exit /b 1
@@ -109,9 +109,11 @@ if not exist "%REPO_DIR%\" (
 ) else (
     copy /y "$(TargetPath)" "%REPO_DIR%" || exit /b 1
     copy /y "%STEAM_API%" "%REPO_DIR%" || exit /b 1
+    rem data.tgz like every other Solar2D plugin package; the old hand-made data.zip was never read
     for %%P in (win32 win32-sim) do (
         if exist "%REPO_DIR%\%%P\data.zip" del "%REPO_DIR%\%%P\data.zip"
-        "%WIN_TAR%" -a -c -f "%REPO_DIR%\%%P\data.zip" -C "%REPO_DIR%" plugin.steamworks.dll steam_api.dll || exit /b 1
+        if exist "%REPO_DIR%\%%P\data.tgz" del "%REPO_DIR%\%%P\data.tgz"
+        "%WIN_TAR%" -c -z -f "%REPO_DIR%\%%P\data.tgz" -C "%REPO_DIR%" plugin.steamworks.dll steam_api.dll || exit /b 1
     )
     echo Updated %REPO_DIR%: commit and push it so other machines get this build
 )
