@@ -3675,7 +3675,8 @@ static uint64 CheckInputHandle(lua_State* L, int index)
 }
 
 /**
-  Initializes Steam Input. Must be called before any other Steam Input functions.
+  Initializes Steam Input. luaopen_plugin_steamworks() already does this at plugin load, so
+  Lua only needs it to restart Steam Input after shutdownSteamInput(). Calling it again is harmless.
   Lua usage: steamworks.initSteamInput()
   Returns true if successful, false otherwise.
  */
@@ -3727,8 +3728,9 @@ int OnRunFrame(lua_State* L)
 
 /**
   Sets the absolute path to a local IGA (In-Game Actions) VDF file.
-  Use this during development to test Steam Input without uploading the VDF to Steamworks.
-  Must be called after initSteamInput() and before polling any actions.
+  Lets a game ship its action manifest and layouts in its own files instead of uploading them to Steamworks.
+  Call it as early as possible. Steam reads the manifest over the next few frames, so handles
+  requested soon after can be 0; callers should retry until they are non-zero.
   Lua usage: local success = steamworks.setInputActionManifestFilePath("/full/path/to/steam_input_iga.vdf")
   Returns true if successful, false otherwise.
  */
@@ -3750,7 +3752,7 @@ int OnSetInputActionManifestFilePath(lua_State* L)
 /**
   Returns an array of connected controller handles.
   Lua usage: local controllers = steamworks.getConnectedControllers()
-  Returns a table (array) of controller handle numbers, or an empty table if none.
+  Returns a table (array) of controller handles as strings (see PushInputHandle), or an empty table if none.
  */
 int OnGetConnectedControllers(lua_State* L)
 {
@@ -4631,8 +4633,9 @@ CORONA_EXPORT int luaopen_plugin_steamworks(lua_State* luaStatePointer)
 		}
 	}
 
-	// Initialize Steam Input so controller polling works automatically via SteamAPI_RunCallbacks().
-	// Pass false so RunFrame() is called automatically, so there is no need to call it manually each frame.
+	// Initialize Steam Input at load so Lua can use it straight away.
+	// Init(false) asks SteamAPI_RunCallbacks() to call RunFrame(), but in practice action data and
+	// origins still go stale without an explicit call, so Lua should call runFrame() each frame.
 	auto steamInputPointer = SteamInput();
 	if (steamInputPointer)
 	{
