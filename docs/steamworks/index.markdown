@@ -11,6 +11,8 @@
 
 The [Steamworks](https://marketplace.coronalabs.com/plugin/steamworks) plugin is intended for desktop games uploaded to Steam. It is used to handle achievements, player stats, leaderboards, and to show <nobr>in-app</nobr> overlays.
 
+It also gives access to Steam Input, Steam's controller API, for controller support, button prompts, and text entry on Steam Deck and other Steam hardware. See the [Steam Input (Controllers)][plugin.steamworks.guide.steamInput] guide to get started.
+
 
 ## Gotchas
 
@@ -61,6 +63,8 @@ application =
 
 ## Functions
 
+#### [steamworks.activateActionSet()][plugin.steamworks.activateActionSet]
+
 #### [steamworks.addEventListener()][plugin.steamworks.addEventListener]
 
 #### [steamworks.getAchievementImageInfo()][plugin.steamworks.getAchievementImageInfo]
@@ -69,17 +73,39 @@ application =
 
 #### [steamworks.getAchievementNames()][plugin.steamworks.getAchievementNames]
 
+#### [steamworks.getActionSetHandle()][plugin.steamworks.getActionSetHandle]
+
+#### [steamworks.getAnalogActionData()][plugin.steamworks.getAnalogActionData]
+
+#### [steamworks.getAnalogActionHandle()][plugin.steamworks.getAnalogActionHandle]
+
+#### [steamworks.getAnalogActionOrigins()][plugin.steamworks.getAnalogActionOrigins]
+
+#### [steamworks.getConnectedControllers()][plugin.steamworks.getConnectedControllers]
+
+#### [steamworks.getDigitalActionData()][plugin.steamworks.getDigitalActionData]
+
+#### [steamworks.getDigitalActionHandle()][plugin.steamworks.getDigitalActionHandle]
+
+#### [steamworks.getDigitalActionOrigins()][plugin.steamworks.getDigitalActionOrigins]
+
 #### [steamworks.getEnteredGamepadTextInput()][plugin.steamworks.getEnteredGamepadTextInput]
 
 #### [steamworks.getGlyphForActionOrigin()][plugin.steamworks.getGlyphForActionOrigin]
 
+#### [steamworks.getInputTypeForHandle()][plugin.steamworks.getInputTypeForHandle]
+
 #### [steamworks.getSteamHardwareDefaultConfig()][plugin.steamworks.getSteamHardwareDefaultConfig]
+
+#### [steamworks.getStringForActionOrigin()][plugin.steamworks.getStringForActionOrigin]
 
 #### [steamworks.getUserImageInfo()][plugin.steamworks.getUserImageInfo]
 
 #### [steamworks.getUserInfo()][plugin.steamworks.getUserInfo]
 
 #### [steamworks.getUserStatValue()][plugin.steamworks.getUserStatValue]
+
+#### [steamworks.initSteamInput()][plugin.steamworks.initSteamInput]
 
 #### [steamworks.isRunningOnSteamHardware()][plugin.steamworks.isRunningOnSteamHardware]
 
@@ -119,13 +145,19 @@ application =
 
 #### [steamworks.resetUserStats()][plugin.steamworks.resetUserStats]
 
+#### [steamworks.runFrame()][plugin.steamworks.runFrame]
+
 #### [steamworks.setAchievementProgress()][plugin.steamworks.setAchievementProgress]
 
 #### [steamworks.setAchievementUnlocked()][plugin.steamworks.setAchievementUnlocked]
 
+#### [steamworks.setInputActionManifestFilePath()][plugin.steamworks.setInputActionManifestFilePath]
+
 #### [steamworks.setNotificationPosition()][plugin.steamworks.setNotificationPosition]
 
 #### [steamworks.setUserStatValues()][plugin.steamworks.setUserStatValues]
+
+#### [steamworks.showBindingPanel()][plugin.steamworks.showBindingPanel]
 
 #### [steamworks.showFloatingGamepadTextInput()][plugin.steamworks.showFloatingGamepadTextInput]
 
@@ -139,6 +171,9 @@ application =
 
 #### [steamworks.showWebOverlay()][plugin.steamworks.showWebOverlay]
 
+#### [steamworks.shutdownSteamInput()][plugin.steamworks.shutdownSteamInput]
+
+#### [steamworks.triggerVibration()][plugin.steamworks.triggerVibration]
 
 ## Properties
 
